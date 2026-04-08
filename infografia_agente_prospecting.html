@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente IA de Prospección — Plan de Construcción</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07);
+    --border-bright: rgba(255,255,255,0.15);
+    --text: #e8e8f0;
+    --muted: #7070a0;
+    --accent-purple: #a78bfa;
+    --accent-teal: #2dd4bf;
+    --accent-amber: #fbbf24;
+    --accent-blue: #60a5fa;
+    --accent-green: #4ade80;
+    --accent-coral: #fb7185;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 60px 40px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(167,139,250,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(167,139,250,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    max-width: 960px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Header ── */
+  .header {
+    margin-bottom: 56px;
+    border-left: 2px solid var(--accent-purple);
+    padding-left: 24px;
+  }
+  .header-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent-purple);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .header h1 {
+    font-family: var(--sans);
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .header h1 span { color: var(--accent-purple); }
+  .header p {
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 300;
+    max-width: 560px;
+    line-height: 1.6;
+  }
+
+  /* ── Stack visual ── */
+  .stack-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 56px;
+    flex-wrap: wrap;
+  }
+  .stack-chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: 0.05em;
+  }
+  .chip-purple { color: var(--accent-purple); border-color: rgba(167,139,250,0.3); background: rgba(167,139,250,0.07); }
+  .chip-teal   { color: var(--accent-teal);   border-color: rgba(45,212,191,0.3);  background: rgba(45,212,191,0.07);  }
+  .chip-amber  { color: var(--accent-amber);  border-color: rgba(251,191,36,0.3);  background: rgba(251,191,36,0.07);  }
+  .chip-blue   { color: var(--accent-blue);   border-color: rgba(96,165,250,0.3);  background: rgba(96,165,250,0.07);  }
+  .chip-green  { color: var(--accent-green);  border-color: rgba(74,222,128,0.3);  background: rgba(74,222,128,0.07);  }
+  .chip-coral  { color: var(--accent-coral);  border-color: rgba(251,113,133,0.3); background: rgba(251,113,133,0.07); }
+
+  /* ── Phases ── */
+  .phase { margin-bottom: 40px; }
+
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .phase-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .phase-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .phase-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+  }
+
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    position: relative;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .step:hover {
+    border-color: var(--border-bright);
+    transform: translateY(-2px);
+  }
+  .step-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .step-index {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.35;
+  }
+  .step-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.55;
+    padding-left: 36px;
+  }
+  .step-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 10px;
+    padding-left: 36px;
+  }
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.03em;
+  }
+
+  /* Phase colors */
+  .p0 .phase-num { background: rgba(45,212,191,0.12); color: var(--accent-teal); }
+  .p0 .step-index { background: rgba(45,212,191,0.12); color: var(--accent-teal); }
+  .p0 .step:hover { border-color: rgba(45,212,191,0.3); }
+
+  .p1 .phase-num { background: rgba(167,139,250,0.12); color: var(--accent-purple); }
+  .p1 .step-index { background: rgba(167,139,250,0.12); color: var(--accent-purple); }
+  .p1 .step:hover { border-color: rgba(167,139,250,0.3); }
+
+  .p2 .phase-num { background: rgba(251,191,36,0.12); color: var(--accent-amber); }
+  .p2 .step-index { background: rgba(251,191,36,0.12); color: var(--accent-amber); }
+  .p2 .step:hover { border-color: rgba(251,191,36,0.3); }
+
+  .p3 .phase-num { background: rgba(96,165,250,0.12); color: var(--accent-blue); }
+  .p3 .step-index { background: rgba(96,165,250,0.12); color: var(--accent-blue); }
+  .p3 .step:hover { border-color: rgba(96,165,250,0.3); }
+
+  .p4 .phase-num { background: rgba(74,222,128,0.12); color: var(--accent-green); }
+  .p4 .step-index { background: rgba(74,222,128,0.12); color: var(--accent-green); }
+  .p4 .step:hover { border-color: rgba(74,222,128,0.3); }
+
+  .tag-herramienta { background: rgba(96,165,250,0.1);  color: var(--accent-blue);   }
+  .tag-decision    { background: rgba(251,191,36,0.1);  color: var(--accent-amber);  }
+  .tag-accion      { background: rgba(74,222,128,0.1);  color: var(--accent-green);  }
+  .tag-cuenta      { background: rgba(167,139,250,0.1); color: var(--accent-purple); }
+  .tag-clave       { background: rgba(251,113,133,0.1); color: var(--accent-coral);  }
+
+  /* ── Flow connector ── */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .connector::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--border), var(--border-bright), var(--border));
+  }
+  .connector-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border-bright);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: gap;
+  }
+  .footer-left {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .footer-right {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .footer-right span { color: var(--accent-purple); }
+
+  /* ── Summary bar ── */
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 48px;
+  }
+  .summary-cell {
+    background: var(--surface);
+    padding: 16px 14px;
+    text-align: center;
+  }
+  .summary-num {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .summary-label {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.3;
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 32px 20px; }
+    .header h1 { font-size: 26px; }
+    .summary { grid-template-columns: repeat(3, 1fr); }
+    .steps-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-label">// Roadmap de construcción</div>
+    <h1>Agente IA de<br><span>Prospección en Frío</span></h1>
+    <p>Plan completo paso a paso para construir un agente que prospecta, califica con BANT y agenda reuniones de forma autónoma.</p>
+  </div>
+
+  <!-- Stack -->
+  <div class="stack-row">
+    <span class="stack-chip chip-purple">Python 3.11+</span>
+    <span class="stack-chip chip-blue">FastAPI</span>
+    <span class="stack-chip chip-teal">Claude API</span>
+    <span class="stack-chip chip-amber">Apollo.io</span>
+    <span class="stack-chip chip-coral">Brevo</span>
+    <span class="stack-chip chip-green">Google Sheets</span>
+    <span class="stack-chip chip-purple">ngrok</span>
+  </div>
+
+  <!-- Summary bar -->
+  <div class="summary">
+    <div class="summary-cell">
+      <div class="summary-num" style="color:var(--accent-teal)">5</div>
+      <div class="summary-label">fases de<br>construcción</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-num" style="color:var(--accent-purple)">20</div>
+      <div class="summary-label">pasos<br>ordenados</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-num" style="color:var(--accent-amber)">6</div>
+      <div class="summary-label">módulos<br>Python</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-num" style="color:var(--accent-blue)">~$10</div>
+      <div class="summary-label">crédito inicial<br>Anthropic</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-num" style="color:var(--accent-green)">$0.03</div>
+      <div class="summary-label">costo por<br>prospecto</div>
+    </div>
+  </div>
+
+  <!-- FASE 0 -->
+  <div class="phase p0">
+    <div class="phase-header">
+      <div class="phase-num">FASE 0</div>
+      <div class="phase-title">Preparación de cuentas y accesos</div>
+      <div class="phase-line"></div>
+    </div>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">01</div>
+          <div class="step-name">Crear cuenta en Anthropic Console</div>
+        </div>
+        <div class="step-desc">console.anthropic.com → cargar $10 → generar API key</div>
+        <div class="step-tags">
+          <span class="tag tag-cuenta">cuenta</span>
+          <span class="tag tag-herramienta">console.anthropic.com</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">02</div>
+          <div class="step-name">Obtener API key de Apollo.io</div>
+        </div>
+        <div class="step-desc">Plan Basic mínimo → Settings → Integrations → API keys</div>
+        <div class="step-tags">
+          <span class="tag tag-cuenta">cuenta</span>
+          <span class="tag tag-herramienta">app.apollo.io</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">03</div>
+          <div class="step-name">Configurar Brevo</div>
+        </div>
+        <div class="step-desc">Verificar dominio → obtener API key → activar Inbound Parsing</div>
+        <div class="step-tags">
+          <span class="tag tag-cuenta">cuenta</span>
+          <span class="tag tag-herramienta">brevo.com</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">04</div>
+          <div class="step-name">Credenciales Google Sheets</div>
+        </div>
+        <div class="step-desc">Google Cloud → Sheets API → Service Account → descargar credentials.json</div>
+        <div class="step-tags">
+          <span class="tag tag-cuenta">cuenta</span>
+          <span class="tag tag-herramienta">console.cloud.google.com</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">05</div>
+          <div class="step-name">Instalar ngrok en local</div>
+        </div>
+        <div class="step-desc">Expone tu localhost para que Brevo pueda llamar el webhook</div>
+        <div class="step-tags">
+          <span class="tag tag-herramienta">ngrok.com</span>
+          <span class="tag tag-accion">instalación</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-dot"></div></div>
+
+  <!-- FASE 1 -->
+  <div class="phase p1">
+    <div class="phase-header">
+      <div class="phase-num">FASE 1</div>
+      <div class="phase-title">ICP y estructura del Google Sheet</div>
+      <div class="phase-line"></div>
+    </div>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">06</div>
+          <div class="step-name">Definir tu ICP</div>
+        </div>
+        <div class="step-desc">Cargos objetivo, países, tamaño de empresa, industria. Alimenta los filtros de Apollo</div>
+        <div class="step-tags">
+          <span class="tag tag-decision">decisión clave</span>
+          <span class="tag tag-clave">hacer primero</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">07</div>
+          <div class="step-name">Crear el Google Sheet</div>
+        </div>
+        <div class="step-desc">2 pestañas: "Prospectos" y "Conversaciones". Compartir con email de Service Account</div>
+        <div class="step-tags">
+          <span class="tag tag-accion">acción</span>
+          <span class="tag tag-herramienta">Google Sheets</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">08</div>
+          <div class="step-name">Definir columnas y estados</div>
+        </div>
+        <div class="step-desc">6 estados: NUEVO → CONTACTADO → EN_BANT → CALIFICADO → AGENDADO → DESCARTADO</div>
+        <div class="step-tags">
+          <span class="tag tag-decision">decisión</span>
+          <span class="tag tag-accion">acción</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-dot"></div></div>
+
+  <!-- FASE 2 -->
+  <div class="phase p2">
+    <div class="phase-header">
+      <div class="phase-num">FASE 2</div>
+      <div class="phase-title">Entorno local de Python</div>
+      <div class="phase-line"></div>
+    </div>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">09</div>
+          <div class="step-name">Crear estructura de carpetas</div>
+        </div>
+        <div class="step-desc">app/ · services/ · agent/ · prompts/ + archivos .env y requirements.txt</div>
+        <div class="step-tags">
+          <span class="tag tag-accion">acción</span>
+          <span class="tag tag-herramienta">VS Code</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">10</div>
+          <div class="step-name">Entorno virtual e instalación</div>
+        </div>
+        <div class="step-desc">fastapi · uvicorn · anthropic · httpx · gspread · google-auth · python-dotenv</div>
+        <div class="step-tags">
+          <span class="tag tag-accion">acción</span>
+          <span class="tag tag-herramienta">pip / venv</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">11</div>
+          <div class="step-name">Configurar archivo .env</div>
+        </div>
+        <div class="step-desc">ANTHROPIC_API_KEY · APOLLO_API_KEY · BREVO_API_KEY · GOOGLE_SHEET_ID · BOOKING_LINK</div>
+        <div class="step-tags">
+          <span class="tag tag-accion">acción</span>
+          <span class="tag tag-decision">completar con keys</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-dot"></div></div>
+
+  <!-- FASE 3 -->
+  <div class="phase p3">
+    <div class="phase-header">
+      <div class="phase-num">FASE 3</div>
+      <div class="phase-title">Construcción de módulos — en este orden exacto</div>
+      <div class="phase-line"></div>
+    </div>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">12</div>
+          <div class="step-name">sheets_client.py</div>
+        </div>
+        <div class="step-desc">La base de datos. Funciones para agregar, buscar y actualizar prospectos y conversaciones</div>
+        <div class="step-tags">
+          <span class="tag tag-clave">construir 1°</span>
+          <span class="tag tag-herramienta">gspread</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">13</div>
+          <div class="step-name">apollo_client.py</div>
+        </div>
+        <div class="step-desc">Búsqueda de prospectos, creación de contactos, actualización de campos BANT en Apollo</div>
+        <div class="step-tags">
+          <span class="tag tag-accion">construir 2°</span>
+          <span class="tag tag-herramienta">Apollo REST API</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">14</div>
+          <div class="step-name">claude_client.py + prompts</div>
+        </div>
+        <div class="step-desc">analyze_bant() y compose_email(). Prompts en prompts/bant.py y prompts/outreach.py</div>
+        <div class="step-tags">
+          <span class="tag tag-accion">construir 3°</span>
+          <span class="tag tag-herramienta">Anthropic API</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">15</div>
+          <div class="step-name">brevo_client.py</div>
+        </div>
+        <div class="step-desc">Función send_email() con prospect_id en headers para rastrear replies entrantes</div>
+        <div class="step-tags">
+          <span class="tag tag-accion">construir 4°</span>
+          <span class="tag tag-herramienta">Brevo API</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">16</div>
+          <div class="step-name">orchestrator.py</div>
+        </div>
+        <div class="step-desc">El cerebro. Conecta todo. process_new_prospect() · process_reply() · _schedule_meeting()</div>
+        <div class="step-tags">
+          <span class="tag tag-clave">construir 5° — el más importante</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">17</div>
+          <div class="step-name">main.py + rutas</div>
+        </div>
+        <div class="step-desc">POST /campaigns/start para iniciar campañas · POST /webhook/email-reply para recibir replies</div>
+        <div class="step-tags">
+          <span class="tag tag-accion">construir 6° — último</span>
+          <span class="tag tag-herramienta">FastAPI</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-dot"></div></div>
+
+  <!-- FASE 4 -->
+  <div class="phase p4">
+    <div class="phase-header">
+      <div class="phase-num">FASE 4</div>
+      <div class="phase-title">Pruebas y primera campaña real</div>
+      <div class="phase-line"></div>
+    </div>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">18</div>
+          <div class="step-name">Probar cada módulo aislado</div>
+        </div>
+        <div class="step-desc">Sheets → Apollo → Claude → Brevo. Verificar que cada uno funciona antes de unirlos</div>
+        <div class="step-tags">
+          <span class="tag tag-accion">prueba por partes</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">19</div>
+          <div class="step-name">Levantar servidor y webhook</div>
+        </div>
+        <div class="step-desc">uvicorn app.main:app --reload · ngrok http 8000 · Pegar URL de ngrok en Brevo → Inbound Parsing</div>
+        <div class="step-tags">
+          <span class="tag tag-accion">acción</span>
+          <span class="tag tag-herramienta">uvicorn + ngrok</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-top">
+          <div class="step-index">20</div>
+          <div class="step-name">Primera campaña de prueba</div>
+        </div>
+        <div class="step-desc">POST /campaigns/start con max_prospects: 3. Verificar Sheet, email, webhook y ciclo completo</div>
+        <div class="step-tags">
+          <span class="tag tag-clave">prueba final</span>
+          <span class="tag tag-decision">validar flujo completo</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><span class="tag tag-cuenta">cuenta</span> Registro / credencial</div>
+    <div class="legend-item"><span class="tag tag-herramienta">herramienta</span> Software o servicio</div>
+    <div class="legend-item"><span class="tag tag-decision">decisión</span> Algo que debes definir</div>
+    <div class="legend-item"><span class="tag tag-accion">acción</span> Tarea técnica concreta</div>
+    <div class="legend-item"><span class="tag tag-clave">clave</span> Paso crítico</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer" style="margin-top:32px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+    <div class="footer-left">Agente IA de Prospección — Plan de construcción localhost</div>
+    <div class="footer-right">Stack: <span>Python · FastAPI · Claude · Apollo · Brevo · Sheets</span></div>
+  </div>
+
+</div>
+</body>
+</html>

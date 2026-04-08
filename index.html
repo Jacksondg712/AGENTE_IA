@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gantt — Agente IA de Prospección</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0b14;--bg2:#0f0f1b;--bg3:#141421;
+  --bdr:rgba(255,255,255,0.055);--bdr2:rgba(255,255,255,0.11);
+  --txt:#ddddf2;--muted:#555588;--dim:#8888bb;
+  --c0:#2dd4bf;--c1:#a78bfa;--c2:#fbbf24;--c3:#60a5fa;--c4:#4ade80;
+  --bg0:rgba(45,212,191,0.13);--bg1:rgba(167,139,250,0.13);
+  --bg2x:rgba(251,191,36,0.13);--bg3:rgba(96,165,250,0.13);--bg4:rgba(74,222,128,0.13);
+  --ph0:rgba(45,212,191,0.07);--ph1:rgba(167,139,250,0.07);
+  --ph2:rgba(251,191,36,0.07);--ph3:rgba(96,165,250,0.07);--ph4:rgba(74,222,128,0.07);
+  --mono:'IBM Plex Mono',monospace;--sans:'Outfit',sans-serif;
+}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);min-height:100vh}
+
+.page-hdr{padding:28px 36px 22px;border-bottom:1px solid var(--bdr)}
+.hdr-top{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;flex-wrap:wrap}
+.hdr-title{font-size:24px;font-weight:700}
+.hdr-title em{color:var(--c3);font-style:normal}
+.hdr-sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:14px}
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.stat{background:var(--bg2);border:1px solid var(--bdr);border-radius:6px;padding:8px 14px;text-align:center;min-width:70px}
+.stat-v{font-family:var(--mono);font-size:18px;font-weight:700;line-height:1;margin-bottom:3px}
+.stat-l{font-size:10px;color:var(--muted);white-space:nowrap}
+
+.legend{display:flex;gap:18px;flex-wrap:wrap;padding:10px 36px;border-bottom:1px solid var(--bdr);background:var(--bg2)}
+.leg{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--dim)}
+.leg-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* Gantt shell */
+#gantt-outer{overflow:auto;max-height:calc(100vh - 185px);border-top:1px solid var(--bdr)}
+#gantt-wrap{display:inline-flex;flex-direction:column}
+
+/* Sticky header row */
+.hdr-row{display:flex;position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--bdr2)}
+.hdr-corner{
+  flex-shrink:0;
+  position:sticky;left:0;z-index:30;background:var(--bg);
+  border-right:1px solid var(--bdr2);
+  display:flex;align-items:flex-end;padding:0 10px 8px;
+  font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;
+}
+.day-col-hdr{display:flex;flex-direction:column;border-right:1px solid var(--bdr);flex-shrink:0}
+.day-col-hdr:last-child{border-right:none}
+.day-top{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 4px}
+.day-dn{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--txt)}
+.day-dd{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.week-badge{font-size:8px;padding:1px 5px;border-radius:3px;font-family:var(--mono);font-weight:700}
+.hours-strip{display:flex;height:19px;border-top:1px solid var(--bdr)}
+.hr-tick{display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  font-size:8px;font-family:var(--mono);color:var(--muted);border-right:1px solid var(--bdr)}
+.hr-tick.lnch{background:rgba(255,200,80,0.07);color:rgba(251,191,36,0.55)}
+.hr-tick:last-child{border-right:none}
+
+/* Content row */
+.content-row{display:flex}
+.labels-col{
+  flex-shrink:0;position:sticky;left:0;z-index:10;background:var(--bg);
+  border-right:1px solid var(--bdr2);
+}
+.ph-lbl{
+  display:flex;align-items:center;padding:0 10px;
+  font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  border-top:1px solid var(--bdr2);
+}
+.task-lbl{
+  display:flex;align-items:center;gap:7px;padding:0 10px;
+  border-top:1px solid var(--bdr);
+}
+.t-num{font-family:var(--mono);font-size:10px;font-weight:700;width:18px;text-align:right;flex-shrink:0}
+.t-name{font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.t-hrs{font-family:var(--mono);font-size:9px;color:var(--dim);flex-shrink:0;margin-left:auto;padding-left:6px}
+
+/* Chart body */
+.chart-body{position:relative;flex-shrink:0}
+
+/* Bars */
+.bar{
+  position:absolute;border-radius:3px;display:flex;align-items:center;padding:0 5px;
+  cursor:default;transition:filter .15s;overflow:hidden;
+}
+.bar:hover{filter:brightness(1.25)}
+.bar-lbl{font-size:8px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Tooltip */
+#tip{
+  position:fixed;z-index:999;display:none;pointer-events:none;
+  background:#1c1c2e;border:1px solid var(--bdr2);border-radius:6px;
+  padding:8px 12px;max-width:230px;
+}
+.tip-name{font-size:12px;font-weight:600;color:var(--txt);margin-bottom:3px}
+.tip-det{font-size:10px;font-family:var(--mono);color:var(--dim);line-height:1.5}
+</style>
+</head>
+<body>
+
+<div class="page-hdr">
+  <div class="hdr-top">
+    <div class="hdr-title">Diagrama de Gantt — <em>Agente IA de Prospección</em></div>
+  </div>
+  <div class="hdr-sub">// Planificación localhost · 08:00–17:00 · Lun–Vie · 13 Abr – 20 Abr 2026</div>
+  <div class="stats">
+    <div class="stat"><div class="stat-v" style="color:var(--c3)">6</div><div class="stat-l">días laborables</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--c4)">20</div><div class="stat-l">pasos totales</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--c2)">~43h</div><div class="stat-l">trabajo estimado</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--c1)">5</div><div class="stat-l">fases</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--c0)">6</div><div class="stat-l">módulos Python</div></div>
+    <div class="stat"><div class="stat-v" style="color:var(--c4)">Lun 20</div><div class="stat-l">primera campaña</div></div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="leg"><div class="leg-sq" style="background:var(--c0)"></div>Fase 0 — Cuentas</div>
+  <div class="leg"><div class="leg-sq" style="background:var(--c1)"></div>Fase 1 — ICP + Sheet</div>
+  <div class="leg"><div class="leg-sq" style="background:var(--c2)"></div>Fase 2 — Entorno Python</div>
+  <div class="leg"><div class="leg-sq" style="background:var(--c3)"></div>Fase 3 — Módulos</div>
+  <div class="leg"><div class="leg-sq" style="background:var(--c4)"></div>Fase 4 — Pruebas</div>
+  <div class="leg"><div class="leg-sq" style="background:rgba(255,200,80,0.35)"></div>Almuerzo 12–13h</div>
+  <div class="leg"><div class="leg-sq" style="background:rgba(255,255,255,0.25);width:3px;height:10px;border-radius:1px"></div>Fin de semana</div>
+</div>
+
+<div id="gantt-outer">
+  <div id="gantt-wrap"></div>
+</div>
+
+<div id="tip">
+  <div class="tip-name" id="tip-name"></div>
+  <div class="tip-det" id="tip-det"></div>
+</div>
+
+<script>
+const PPH   = 48;
+const RH    = 40;
+const PH_H  = 27;
+const LW    = 258;
+const HDR   = 57;
+const DAY_W = 9 * PPH;
+const N_DAYS = 6;
+const GANTT_W = N_DAYS * DAY_W;
+
+const C  = ['#2dd4bf','#a78bfa','#fbbf24','#60a5fa','#4ade80'];
+const BG = ['rgba(45,212,191,0.12)','rgba(167,139,250,0.12)','rgba(251,191,36,0.12)','rgba(96,165,250,0.12)','rgba(74,222,128,0.12)'];
+const PH = ['rgba(45,212,191,0.065)','rgba(167,139,250,0.065)','rgba(251,191,36,0.065)','rgba(96,165,250,0.065)','rgba(74,222,128,0.065)'];
+
+const PHASE_LABELS = [
+  'FASE 0 — Preparación de cuentas y accesos',
+  'FASE 1 — ICP y estructura Google Sheet',
+  'FASE 2 — Entorno local Python',
+  'FASE 3 — Construcción de módulos (en orden)',
+  'FASE 4 — Pruebas y primera campaña real',
+];
+
+const DAYS = [
+  {d:'Lun',dt:'13 Abr',w:1},
+  {d:'Mar',dt:'14 Abr',w:1},
+  {d:'Mié',dt:'15 Abr',w:1},
+  {d:'Jue',dt:'16 Abr',w:1},
+  {d:'Vie',dt:'17 Abr',w:1},
+  {d:'Lun',dt:'20 Abr',w:2},
+];
+
+// segs: d=dayIndex(0-5), s=startHour(0-9 where 0=8am,4=12pm,5=1pm,9=5pm), e=endHour
+const TASKS = [
+  {id:1, p:0,hrs:'1h',   name:'Anthropic Console + API key',      detail:'console.anthropic.com → cargar $10 → generar API key',         segs:[{d:0,s:0,e:1}]},
+  {id:2, p:0,hrs:'30m',  name:'Apollo.io API key',                 detail:'Settings → Integrations → API keys → copiar la key',           segs:[{d:0,s:1,e:1.5}]},
+  {id:3, p:0,hrs:'2h',   name:'Configurar Brevo + Inbound Parsing',detail:'Verificar dominio · obtener API key · activar Inbound Parsing', segs:[{d:0,s:1.5,e:3.5}]},
+  {id:4, p:0,hrs:'3h',   name:'Credenciales Google Sheets',        detail:'Google Cloud → Sheets API → Service Account → credentials.json',segs:[{d:0,s:3.5,e:4},{d:0,s:5,e:7.5}]},
+  {id:5, p:0,hrs:'30m',  name:'Instalar ngrok en local',           detail:'ngrok.com → descarga gratuita → instalar en PATH',             segs:[{d:0,s:7.5,e:8}]},
+  {id:6, p:1,hrs:'2h',   name:'Definir ICP (cliente ideal)',        detail:'Cargos objetivo, países, tamaño empresa, industria → filtros Apollo',segs:[{d:1,s:0,e:2}]},
+  {id:7, p:1,hrs:'1h',   name:'Crear Google Sheet (2 pestañas)',   detail:'Pestaña Prospectos + Pestaña Conversaciones · compartir con SA', segs:[{d:1,s:2,e:3}]},
+  {id:8, p:1,hrs:'1h',   name:'Columnas y estados del prospecto',  detail:'6 estados: NUEVO→CONTACTADO→EN_BANT→CALIFICADO→AGENDADO→DESCARTADO',segs:[{d:1,s:3,e:4}]},
+  {id:9, p:2,hrs:'30m',  name:'Estructura de carpetas',            detail:'app/ · services/ · agent/ · prompts/ + .env + requirements.txt', segs:[{d:1,s:5,e:5.5}]},
+  {id:10,p:2,hrs:'1h',   name:'venv + instalación de librerías',   detail:'fastapi uvicorn anthropic httpx gspread google-auth python-dotenv',segs:[{d:1,s:5.5,e:6.5}]},
+  {id:11,p:2,hrs:'30m',  name:'Configurar archivo .env',           detail:'ANTHROPIC_API_KEY · APOLLO_API_KEY · BREVO_API_KEY · GOOGLE_SHEET_ID',segs:[{d:1,s:6.5,e:7}]},
+  {id:12,p:3,hrs:'3h',   name:'sheets_client.py',                  detail:'add_prospect · find_by_email · update_bant · add_message · get_conversation',segs:[{d:2,s:0,e:3}]},
+  {id:13,p:3,hrs:'5h',   name:'apollo_client.py',                  detail:'search_prospects · create_contact · update_bant_fields · add_to_sequence',segs:[{d:2,s:3,e:4},{d:2,s:5,e:9}]},
+  {id:14,p:3,hrs:'4h',   name:'claude_client.py + prompts/',       detail:'analyze_bant() · compose_email() · prompts/bant.py · prompts/outreach.py',segs:[{d:3,s:0,e:4}]},
+  {id:15,p:3,hrs:'2h',   name:'brevo_client.py',                   detail:'send_email() con prospect_id en headers para rastrear replies',  segs:[{d:3,s:5,e:7}]},
+  {id:16,p:3,hrs:'6h',   name:'orchestrator.py',                   detail:'process_new_prospect · process_reply · _schedule_meeting · _send_followup',segs:[{d:3,s:7,e:9},{d:4,s:0,e:4}]},
+  {id:17,p:3,hrs:'2h',   name:'main.py + rutas FastAPI',           detail:'POST /campaigns/start · POST /webhook/email-reply · DB session',  segs:[{d:4,s:5,e:7}]},
+  {id:18,p:4,hrs:'4h',   name:'Probar módulos aislados',           detail:'Sheets → Apollo → Claude → Brevo · verificar cada uno por separado',segs:[{d:5,s:0,e:4}]},
+  {id:19,p:4,hrs:'2h',   name:'Levantar servidor + ngrok',         detail:'uvicorn app.main:app --reload · ngrok http 8000 · configurar URL en Brevo',segs:[{d:5,s:5,e:7}]},
+  {id:20,p:4,hrs:'2h',   name:'Primera campaña (3 prospectos)',    detail:'POST /campaigns/start · verificar Sheet, email, webhook y ciclo completo',segs:[{d:5,s:7,e:9}]},
+];
+
+function buildRows() {
+  const rows = [];
+  let y = 0;
+  const byP = [0,1,2,3,4].map(p => TASKS.filter(t => t.p === p));
+  for (let p = 0; p < 5; p++) {
+    rows.push({type:'phase',p,y,h:PH_H});
+    y += PH_H;
+    for (const t of byP[p]) {
+      rows.push({type:'task',t,y,h:RH});
+      y += RH;
+    }
+  }
+  return {rows, totalH: y};
+}
+
+function el(tag, attrs, innerHTML) {
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs||{})) {
+    if (k === 'style') Object.assign(e.style, v);
+    else e.setAttribute(k, v);
+  }
+  if (innerHTML !== undefined) e.innerHTML = innerHTML;
+  return e;
+}
+
+function setStyle(e, s) { Object.assign(e.style, s); return e; }
+
+function render() {
+  const {rows, totalH} = buildRows();
+  const wrap = document.getElementById('gantt-wrap');
+  wrap.style.minWidth = (LW + GANTT_W) + 'px';
+
+  // ── HEADER ROW ──
+  const hdrRow = el('div');
+  hdrRow.className = 'hdr-row';
+  hdrRow.style.height = HDR + 'px';
+
+  // Corner
+  const corner = el('div');
+  corner.className = 'hdr-corner';
+  setStyle(corner, {width: LW+'px', height: HDR+'px'});
+  corner.textContent = 'Tarea / Módulo';
+  hdrRow.appendChild(corner);
+
+  // Day columns header
+  const HOUR_LABELS = ['8','9','10','11','☕','13','14','15','16'];
+  for (let di = 0; di < 6; di++) {
+    const d = DAYS[di];
+    const dc = el('div');
+    dc.className = 'day-col-hdr';
+    setStyle(dc, {width: DAY_W+'px', height: HDR+'px',
+      borderLeft: di===5 ? '2px solid rgba(255,255,255,0.18)' : 'none'
+    });
+
+    const top = el('div');
+    top.className = 'day-top';
+    top.style.flex = '1';
+
+    if (di === 0) {
+      const wb = el('span');
+      wb.className = 'week-badge';
+      setStyle(wb, {background:'rgba(96,165,250,0.15)',color:'#60a5fa'});
+      wb.textContent = 'SEM 1';
+      top.appendChild(wb);
+    }
+    if (di === 5) {
+      const wb = el('span');
+      wb.className = 'week-badge';
+      setStyle(wb, {background:'rgba(74,222,128,0.15)',color:'#4ade80'});
+      wb.textContent = 'SEM 2';
+      top.appendChild(wb);
+    }
+    const dn = el('span'); dn.className = 'day-dn'; dn.textContent = d.d;
+    const dd = el('span'); dd.className = 'day-dd'; dd.textContent = d.dt;
+    top.appendChild(dn);
+    top.appendChild(dd);
+    dc.appendChild(top);
+
+    const hrs = el('div');
+    hrs.className = 'hours-strip';
+    HOUR_LABELS.forEach((lbl, hi) => {
+      const ht = el('div');
+      ht.className = 'hr-tick' + (lbl==='☕' ? ' lnch' : '');
+      setStyle(ht, {width: PPH+'px', height:'19px'});
+      ht.textContent = lbl;
+      hrs.appendChild(ht);
+    });
+    dc.appendChild(hrs);
+    hdrRow.appendChild(dc);
+  }
+  wrap.appendChild(hdrRow);
+
+  // ── CONTENT ROW ──
+  const contentRow = el('div');
+  contentRow.className = 'content-row';
+
+  // Labels column
+  const labelsCol = el('div');
+  labelsCol.className = 'labels-col';
+  setStyle(labelsCol, {width: LW+'px'});
+
+  for (const row of rows) {
+    if (row.type === 'phase') {
+      const ph = el('div');
+      ph.className = 'ph-lbl';
+      setStyle(ph, {
+        height: PH_H+'px',
+        background: PH[row.p],
+        color: C[row.p],
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+      });
+      ph.textContent = PHASE_LABELS[row.p];
+      labelsCol.appendChild(ph);
+    } else {
+      const t = row.t;
+      const tl = el('div');
+      tl.className = 'task-lbl';
+      setStyle(tl, {height: RH+'px'});
+
+      const num = el('span'); num.className = 't-num';
+      setStyle(num, {color: C[t.p]});
+      num.textContent = t.id;
+
+      const nm = el('span'); nm.className = 't-name';
+      nm.textContent = t.name;
+      nm.title = t.name;
+
+      const hrs = el('span'); hrs.className = 't-hrs';
+      hrs.textContent = t.hrs;
+
+      tl.appendChild(num); tl.appendChild(nm); tl.appendChild(hrs);
+      labelsCol.appendChild(tl);
+    }
+  }
+  contentRow.appendChild(labelsCol);
+
+  // Chart body
+  const body = el('div');
+  body.className = 'chart-body';
+  setStyle(body, {width: GANTT_W+'px', height: totalH+'px'});
+
+  // Background: alternating day cols + lunch bands + grid lines + separators
+  for (let di = 0; di < 6; di++) {
+    const x = di * DAY_W;
+
+    // Alternating day bg
+    if (di % 2 === 1) {
+      const bg = el('div');
+      setStyle(bg, {position:'absolute',top:0,bottom:0,left:x+'px',width:DAY_W+'px',
+        background:'rgba(255,255,255,0.013)',pointerEvents:'none'});
+      body.appendChild(bg);
+    }
+
+    // Lunch band (hour 4 = 4*PPH from day start, width=PPH)
+    const lb = el('div');
+    setStyle(lb, {position:'absolute',top:0,bottom:0,
+      left:(x + 4*PPH)+'px', width:PPH+'px',
+      background:'rgba(255,200,80,0.055)',pointerEvents:'none'});
+    body.appendChild(lb);
+
+    // Hour vertical grid lines
+    for (let h = 1; h < 9; h++) {
+      const line = el('div');
+      setStyle(line, {position:'absolute',top:0,bottom:0,
+        left:(x + h*PPH)+'px', width:'1px',
+        background:'rgba(255,255,255,0.038)',pointerEvents:'none'});
+      body.appendChild(line);
+    }
+
+    // Day separator
+    if (di > 0) {
+      const sep = el('div');
+      const isWeekend = di === 5;
+      setStyle(sep, {
+        position:'absolute',top:0,bottom:0,left:x+'px',
+        width: isWeekend ? '2px' : '1px',
+        background: isWeekend ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.09)',
+        pointerEvents:'none',
+      });
+      body.appendChild(sep);
+
+      if (isWeekend) {
+        const wl = el('div');
+        setStyle(wl, {
+          position:'absolute',top:'6px',left:(x+5)+'px',
+          fontFamily:'var(--mono)',fontSize:'8px',color:'rgba(255,255,255,0.22)',
+          letterSpacing:'.1em',whiteSpace:'nowrap',
+          writingMode:'vertical-rl',textOrientation:'mixed',
+          pointerEvents:'none',
+        });
+        wl.textContent = '── FIN DE SEMANA ──';
+        body.appendChild(wl);
+      }
+    }
+  }
+
+  // Phase bands (subtle horizontal bg per phase group)
+  for (const row of rows) {
+    if (row.type === 'phase') {
+      const pb = el('div');
+      setStyle(pb, {
+        position:'absolute',left:0,right:0,top:row.y+'px',height:row.h+'px',
+        background:PH[row.p],
+        borderTop:'1px solid rgba(255,255,255,0.08)',
+        pointerEvents:'none',
+      });
+      body.appendChild(pb);
+    } else {
+      // Subtle row separator
+      const rs = el('div');
+      setStyle(rs, {
+        position:'absolute',left:0,right:0,top:row.y+'px',height:'1px',
+        background:'rgba(255,255,255,0.038)',pointerEvents:'none',
+      });
+      body.appendChild(rs);
+    }
+  }
+
+  // BARS
+  const tip = document.getElementById('tip');
+  const tipName = document.getElementById('tip-name');
+  const tipDet = document.getElementById('tip-det');
+
+  for (const row of rows) {
+    if (row.type !== 'task') continue;
+    const t = row.t;
+    const color = C[t.p];
+    const bgColor = BG[t.p];
+    const barY = row.y + 7;
+    const barH = RH - 14;
+
+    // Draw connector line between split segments
+    if (t.segs.length > 1) {
+      for (let si = 0; si < t.segs.length - 1; si++) {
+        const sA = t.segs[si];
+        const sB = t.segs[si+1];
+        const x1 = sA.d * DAY_W + sA.e * PPH;
+        const x2 = sB.d * DAY_W + sB.s * PPH;
+        const midY = row.y + RH/2;
+        const conn = el('div');
+        setStyle(conn, {
+          position:'absolute',left:x1+'px',top:(midY-0.5)+'px',
+          width:(x2-x1)+'px',height:'1px',
+          borderTop:`1px dashed ${color}60`,pointerEvents:'none',
+        });
+        body.appendChild(conn);
+      }
+    }
+
+    for (let si = 0; si < t.segs.length; si++) {
+      const seg = t.segs[si];
+      const x = seg.d * DAY_W + seg.s * PPH;
+      const w = (seg.e - seg.s) * PPH;
+      const isFirst = si === 0;
+      const isLast  = si === t.segs.length - 1;
+
+      const bar = el('div');
+      bar.className = 'bar';
+      setStyle(bar, {
+        left: x + 'px',
+        top:  barY + 'px',
+        width: Math.max(w - 1, 2) + 'px',
+        height: barH + 'px',
+        background: bgColor,
+        borderLeft:   isFirst ? `2.5px solid ${color}` : 'none',
+        borderRight:  isLast  ? `1px solid ${color}55` : 'none',
+        borderTop:    `1px solid ${color}50`,
+        borderBottom: `1px solid ${color}35`,
+        borderRadius: `${isFirst?3:0}px ${isLast?3:0}px ${isLast?3:0}px ${isFirst?3:0}px`,
+      });
+
+      if (w > 55) {
+        const lbl = el('span');
+        lbl.className = 'bar-lbl';
+        setStyle(lbl, {color, opacity:'0.85'});
+        lbl.textContent = isFirst ? `${t.id}. ${t.name}` : '↳ continúa';
+        bar.appendChild(lbl);
+      } else if (w > 20 && isFirst) {
+        const lbl = el('span');
+        lbl.className = 'bar-lbl';
+        setStyle(lbl, {color, opacity:'0.85'});
+        lbl.textContent = t.id;
+        bar.appendChild(lbl);
+      }
+
+      // Tooltip events
+      bar.addEventListener('mouseenter', (e) => {
+        tipName.textContent = `${t.id}. ${t.name}`;
+        tipName.style.color = color;
+        tipDet.innerHTML = `${t.hrs} · ${PHASE_LABELS[t.p]}<br>${t.detail}`;
+        tip.style.display = 'block';
+      });
+      bar.addEventListener('mousemove', (e) => {
+        tip.style.left = (e.clientX + 14) + 'px';
+        tip.style.top  = (e.clientY - 50) + 'px';
+      });
+      bar.addEventListener('mouseleave', () => {
+        tip.style.display = 'none';
+      });
+
+      body.appendChild(bar);
+    }
+  }
+
+  contentRow.appendChild(body);
+  wrap.appendChild(contentRow);
+}
+
+render();
+</script>
+</body>
+</html>
